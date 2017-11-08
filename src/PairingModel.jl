@@ -34,7 +34,8 @@ function make_pairing_momentumspace{T<:Number}(
 end
 
 # 1 : nearest neighbor
-const formfactors = Dict{String, Any}(
+
+const FORMFACTORS = Dict{String, Any}(
   "s1" => Dict(
     1 => [
       ( 1, 0, 0, 2,-1, 0, 1),
@@ -67,11 +68,12 @@ const formfactors = Dict{String, Any}(
   ),
 )
 
+
 function make_pairing_realspace_dense{T <: Number}(
       pairing_orderparameter :: Array{T, 3},
       formfactor;
       periodic ::Bool=true)
-  
+
   (n_basis, nx, ny) = size(pairing_orderparameter)
   @assert n_basis == 2
 
@@ -110,10 +112,10 @@ function make_pairing_mixedspace{T <: Number}(
       pairing_orderparameter ::Array{T, 2},
       formfactor;
       periodic ::Bool=true)
-  
+
   (n_basis, nx) = size(pairing_orderparameter)
   @assert(n_basis == 2, "number of orbitals should be 2")
-  
+
   Φ = copy(pairing_orderparameter)
 
   const orbital_displacement = [0.0, 0.5]
@@ -130,8 +132,8 @@ function make_pairing_mixedspace{T <: Number}(
 
     collect_open = (ro, ru, co, cu, v) -> begin
       if 1 <= ru <= nx && 1 <= cu <= nx
-        pairing_gap_matrix[ro, rs, co, cs] += v
-        pairing_gap_matrix[co, cs, ro, rs] += conj(v)
+        pairing_gap_matrix[ro, ru, co, cu] += v
+        pairing_gap_matrix[co, cu, ro, ru] += conj(v)
       end
     end
 
@@ -151,4 +153,3 @@ function make_pairing_mixedspace{T <: Number}(
     return reshape(pairing_gap_matrix, (2*nx, 2*nx))
   end
 end
-

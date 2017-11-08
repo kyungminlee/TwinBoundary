@@ -1,5 +1,6 @@
 module DaghoferModel
 
+using Formatting
 using Tightbinding
 
 export DaghoferParameter
@@ -33,7 +34,7 @@ function hoppingList(param ::DaghoferParameter)
     t7 = param.t7
     t8 = param.t8
     Δxy = param.Δxy
-    μ   = param.μ   
+    μ   = param.μ
     hl = [
         (( 1, 0), "xz", "xz", t1),    ((-1, 0), "xz", "xz", t1),
         (( 0, 1), "xz", "xz", t2),    (( 0,-1), "xz", "xz", t2),
@@ -82,7 +83,7 @@ function daghoferModel(S :: Type, param :: DaghoferParameter)
         ("xz", [0.0, 0.0]),
         ("yz", [0.0, 0.0]) ,
         ("xy", [0.0, 0.0])])
-    
+
     hops = hoppingList(param)
     for (dis, ro, co, v) in hops
         add_hopping!(tb_model, dis, ro, co, v)
@@ -90,19 +91,47 @@ function daghoferModel(S :: Type, param :: DaghoferParameter)
     return tb_model
 end
 
+function spinfulDaghoferModel(S ::Type,
+                              param ::DaghoferParameter,
+                              soc::Float64)
+    @assert( S <: Number )
+    tb_model = TightbindingModel{2, S}([
+        ("xz_up", [0.0, 0.0]),
+        ("yz_up", [0.0, 0.0]),
+        ("xy_up", [0.0, 0.0]),
+        ("xz_dn", [0.0, 0.0]),
+        ("yz_dn", [0.0, 0.0]),
+        ("xy_dn", [0.0, 0.0]),
+    ])
+
+    # spin-independent hoppings
+    hops = hoppingList(param)
+    for sp in ["up", "dn"], (dis, ro, co, v) in hops
+        ros = format("{}_{}", ro, sp)
+        cos = format("{}_{}", co, sp)
+        add_hopping!(tb_model, dis, ros, cos, v)
+    end
+    # spin-orbit coupling
+    add_hopping!(tb_model, (0,0), "xz_up", "yz_up", +im * soc)
+    add_hopping!(tb_model, (0,0), "yz_up", "xz_up", -im * soc)
+    add_hopping!(tb_model, (0,0), "xz_dn", "yz_dn", -im * soc)
+    add_hopping!(tb_model, (0,0), "yz_dn", "xz_dn", +im * soc)
+
+    return tb_model
+end
 
 #=
 function makeMomentumspace(param::DaghoferParameter)
     t1 = param.t1
     t2 = param.t2
-    t3 = param.t3	
+    t3 = param.t3
     t4 = param.t4
     t5 = param.t5
     t6 = param.t6
     t7 = param.t7
     t8 = param.t8
     Δxy = param.Δxy
-    μ   = param.μ   
+    μ   = param.μ
     ϵ_xz_xz = (kx ::Real, ky ::Real) -> begin
         2*t1*cos(kx) + 2*t2*cos(ky) + 4*t3*cos(kx)*cos(ky) - μ
     end
@@ -140,7 +169,7 @@ end
 
 function makeRealspaceDifference(param ::DaghoferParameter, nx ::Integer, ny ::Integer)
     hoppings = hoppingList(param)
-    orbitalIndices = Dict("xz"=>1, "yz"=>2, "xy"=>3) 
+    orbitalIndices = Dict("xz"=>1, "yz"=>2, "xy"=>3)
     hamiltonian = zeros(Complex128, nx, ny, 3, 3)
     for (dx, dy, orb1, orb2, val) in hoppings
         iorb1 = orbitalIndices[orb1]
@@ -156,7 +185,7 @@ end
 
 function makeRealspaceDense(param::DaghoferParameter, nx ::Integer, ny ::Integer, periodic ::Bool = true)
     hoppings = hoppingList(param)
-    orbitalIndices = Dict("xz"=>1, "yz"=>2, "xy"=>3) 
+    orbitalIndices = Dict("xz"=>1, "yz"=>2, "xy"=>3)
     hamiltonian = zeros(Complex128, 3, nx, ny, 3, nx, ny)
     for (dx, dy, orb1, orb2, val) in hoppings
         iorb1 = orbitalIndices[orb1]
@@ -188,7 +217,7 @@ function makeRealspaceSparse(param::DaghoferParameter, nx ::Integer, ny ::Intege
     shape = (3, nx, ny)
     orbitalIndices = Dict("xz"=>1, "yz"=>2, "xy"=>3)
     rows, cols, vals = Int64[], Int64[], Complex128[]
-    
+
     for (dx, dy, orb1, orb2, val) in hoppings
         iorb1 = orbitalIndices[orb1]
         iorb2 = orbitalIndices[orb2]

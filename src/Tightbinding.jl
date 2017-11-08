@@ -49,31 +49,34 @@ function Base.show(io::IO, obj ::OrbitalInformation)
 end
 
 
-type TightbindingModel{D, S <: Number}
+mutable struct TightbindingModel{D, S <: Number}
   orbitals :: Vector{String}
   orbital_info :: Dict{String, OrbitalInformation}
   hoppings :: Vector{HoppingElement{D, S}}
 
-  function TightbindingModel(orbitals :: Vector{String},
-                             orbital_info :: Dict{String, OrbitalInformation},
-                             hoppings :: Vector{HoppingElement{D, S}})
-    new(orbitals, orbital_info, hoppings)
+  function TightbindingModel{D, S}(
+      orbitals :: Vector{String},
+      orbital_info :: Dict{String, OrbitalInformation},
+      hoppings :: Vector{HoppingElement{D, S}}) where {D, S<:Number}
+    new{D, S}(orbitals, orbital_info, hoppings)
   end
+end
 
-  function TightbindingModel(orbitals ::Vector{Tuple{String, Vector{Float64} } } )
-    orbs = String[]
-    orbital_info = Dict{String, OrbitalInformation}()
-    for (idx, (orb, pos)) in enumerate(orbitals)
-      push!(orbs, orb)
-      orbital_info[orb] = OrbitalInformation(idx, pos)
-    end
-    hoppings = HoppingElement{D, S}[]
-    new(orbs, orbital_info, hoppings)
+function TightbindingModel{D, S}(orbitals ::Vector{Tuple{String, Vector{Float64} } } ) where {D,S}
+  orbs = String[]
+  orbital_info = Dict{String, OrbitalInformation}()
+  for (idx, (orb, pos)) in enumerate(orbitals)
+    push!(orbs, orb)
+    orbital_info[orb] = OrbitalInformation(idx, pos)
   end
+  hoppings = HoppingElement{D, S}[]
+  @show orbs
+  @show orbital_info
+  TightbindingModel{D, S}(orbs, orbital_info, hoppings)
+end
 
-  function TightbindingModel()
-    TightbindingModel([("s", zeros(Float64, D))])
-  end
+function TightbindingModel{D, S}() where {D,S}
+  TightbindingModel{D,S}([("s", zeros(Float64, D))])
 end
 
 function Base.show{D, S <: Number}(io ::IO, tb ::TightbindingModel{D, S})
@@ -100,7 +103,7 @@ function add_hopping!{D, S<:Number, S2 <: Number}(
     throw(DomainError())#"spatial displacement should be $D dimensional"))
   end
 
-  push!(tightbinding.hoppings, 
+  push!(tightbinding.hoppings,
         HoppingElement(displacement,
                        row_orbital, col_orbital,
                        Base.convert(S, value)) )
@@ -242,7 +245,7 @@ function make_mixedspace2{D, S}(tb_model ::TightbindingModel{D, S},
   n_orbital = length(tb_model.orbitals)
   hoppings = tb_model.hoppings
   orbital_info = copy(tb_model.orbital_info)
-  
+
   realspace_indices = zeros(Bool, D)
   momentumspace_indices = zeros(Bool, D)
 
@@ -258,7 +261,8 @@ function make_mixedspace2{D, S}(tb_model ::TightbindingModel{D, S},
   Dk = sum(momentumspace_indices)
 
   (k ::Vector{Float64}) -> begin
-    m = zeros(Complex128, (n_orbital, size[realspace_indices]..., n_orbital, size[realspace_indices]...))
+    m = zeros(Complex128, (n_orbital, size[realspace_indices]...,
+                           n_orbital, size[realspace_indices]...))
     for hop in hoppings
       dis = [hop.displacement...]
       ro, co, val = hop.row_orbital, hop.col_orbital, hop.value
@@ -267,7 +271,7 @@ function make_mixedspace2{D, S}(tb_model ::TightbindingModel{D, S},
       cpos = orbital_info[co].position
       #TODO CHECK SIGN
       kphase = [k...] ⋅ (
-        dis[momentumspace_indices] 
+        dis[momentumspace_indices]
         + cpos[momentumspace_indices] - rpos[momentumspace_indices])
       v = hop.value * exp(1im * kphase)
       for i in Base.product([1:n for n in size[realspace_indices]]...)
@@ -284,7 +288,8 @@ end
 """
     make_momentumspace{D, S}(tb_model::TightbindingModel{D, S})
 
-Returns a function of \$\\mathbf{k}\$ which returns the Hamiltonian at momentum \$\\mathbf{k}\$.
+Returns a function of \$\\mathbf{k}\$ which returns the Hamiltonian
+at momentum \$\\mathbf{k}\$.
 """
 function make_momentumspace{D, S}(tb_model::TightbindingModel{D, S})
   n_orbital = length(tb_model.orbitals)
