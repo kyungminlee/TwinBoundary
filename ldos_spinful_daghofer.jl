@@ -2,6 +2,8 @@ using ArgParse
 using JLD
 using HDF5
 
+version="0.1"
+
 include("src/Tightbinding.jl")
 include("src/DaghoferModel.jl")
 
@@ -12,7 +14,7 @@ include("spinful_daghofer.jl")
 
 function parse_commandline()
   argsetting = ArgParseSettings("Spinful Daghofer One Dimension",
-                                version="Version 0.1",
+                                version=version,
                                 add_version=true)
 
   @add_arg_table argsetting begin
@@ -70,7 +72,7 @@ function main()
   r = compute_mixedspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
   n = length(r["eigenvalues"])
   ψ = reshape(r["eigenvectors"], (n_nambu, n_orbital, n_spin, n_basis, nx, n))
-  ρ = reshape( sum( (abs.(ψ[1,:,:,:,:,:]).^2), (1, 2, 3)), (nx, n))
+  ρ = reshape( sum( (abs.(ψ[1,:,:,:,:,:]).^2), (1, 2)), (n_basis, nx, n))
 
 
   # JLD
@@ -96,27 +98,37 @@ function main()
        "SPECTRUM/SPECTRAL WEIGHTS", ρ,
        )
   =#
+  n_eigen = n_nambu * n_orbital * n_spin * n_basis * nx
+  n_total = ny * n_eigen
   h5open(args["outfile"], "w") do file
-    file["VERSION"] = "2.0"
+    file["VERSION"] = version
     file["TYPE"] = "LDOS"
-    file["HILBERT/DIMENSION ORDERING"] = ["NAMBU", "ORBITAL", "SPIN", "BASIS", "NX"]
-    file["HILBERT/NUMBER OF NAMBU"] = n_nambu
-    file["HILBERT/NUMBER OF ORBITALS"] = n_orbital
-    file["HILBERT/NUMBER OF SPINS"] = n_spin
-    file["HILBERT/NUMBER OF BASIS SITES"] = n_basis
-    file["LATTICE/NX"] =  nx
-    file["LATTICE/NY"] =  ny
-    file["HAMILTONIAN/CORRELATION LENGTH OF S-WAVE"] = args["xi0"]
-    file["HAMILTONIAN/CORRELATION LENGTH OF P-WAVE"] = args["xi1"]
-    file["HAMILTONIAN/PAIRING GAP D-WAVE"] = args["pairing_d"]
-    file["HAMILTONIAN/PAIRING GAP S-WAVE"] = args["pairing_s"]
-    file["HAMILTONIAN/PAIRING GAP P-WAVE"] = args["pairing_p"]
-    file["HAMILTONIAN/SPIN ORBIT COUPLING"] = args["soc"]
-    file["SPECTRUM/MOMENTUMS"] = r["momentums"]
-    file["SPECTRUM/EIGENVALUES"] = r["eigenvalues"]
-    file["SPECTRUM/EIGENVECTORS REAL"] = real( r["eigenvectors"] )
-    file["SPECTRUM/EIGENVECTORS IMAG"] = imag( r["eigenvectors"] )
-    file["SPECTRUM/SPECTRAL WEIGHTS"] = ρ
+
+    g = g_create(file, "HILBERT")
+    g["DIMENSION ORDERING"] = ["NAMBU", "ORBITAL", "SPIN", "BASIS", "NX"]
+    g["NUMBER OF NAMBU"] = n_nambu
+    g["NUMBER OF ORBITALS"] = n_orbital
+    g["NUMBER OF SPINS"] = n_spin
+    g["NUMBER OF BASIS SITES"] = n_basis
+
+    g = g_create(file, "LATTICE")
+    g["NX"] =  nx
+    g["NY"] =  ny
+
+    g = g_create(file, "HAMILTONIAN")
+    g["CORRELATION LENGTH OF S-WAVE"] = args["xi0"]
+    g["CORRELATION LENGTH OF P-WAVE"] = args["xi1"]
+    g["PAIRING GAP D-WAVE"] = args["pairing_d"]
+    g["PAIRING GAP S-WAVE"] = args["pairing_s"]
+    g["PAIRING GAP P-WAVE"] = args["pairing_p"]
+    g["SPIN ORBIT COUPLING"] = args["soc"]
+
+    g = g_create(file, "SPECTRUM")
+    g["MOMENTUMS",         "chunk", (n_eigen,), "shuffle", (), "compress", 9] = r["momentums"]
+    g["EIGENVALUES",       "chunk", (n_eigen,), "shuffle", (), "compress", 9] = r["eigenvalues"]
+    #g["EIGENVECTORS REAL", "chunk", (n_eigen, n_eigen), "shuffle", (), "compress", 9] = real( r["eigenvectors"] )
+    #g["EIGENVECTORS IMAG", "chunk", (n_eigen, n_eigen), "shuffle", (), "compress", 9] = imag( r["eigenvectors"] )
+    g["SPECTRAL WEIGHTS",  "chunk", (n_basis, nx, n_eigen), "shuffle", (), "compress", 9] = ρ
   end
 end
 
