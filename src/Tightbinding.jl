@@ -12,7 +12,7 @@ export make_realspace_sparse
 export make_momentumspace
 export make_mixedspace
 export make_mixedspace2
-
+export nambufy
 
 
 immutable HoppingElement{D, S <: Number}
@@ -160,6 +160,26 @@ function double_unitcell{S}(tb_model ::TightbindingModel{2, S})
       add_hopping!(new_tb_model, ((Dx - 1) ÷ 2, (Dy - 1) ÷ 2), "$ro-a", "$co-b", val)
       add_hopping!(new_tb_model, ((Dx + 1) ÷ 2, (Dy + 1) ÷ 2), "$ro-b", "$co-a", val)
     end
+  end
+  return new_tb_model
+end
+
+function nambufy{S}(tb_model ::TightbindingModel{2, S})
+  new_orbitals = Tuple{String, Vector{Float64}}[]
+  for orb in tb_model.orbitals
+    pos = tb_model.orbital_info[orb].position
+    push!(new_orbitals, ("$orb-p", pos))
+    push!(new_orbitals, ("$orb-h", pos))
+  end
+
+  new_tb_model = TightbindingModel{2, S}(new_orbitals)
+  for hop in tb_model.hoppings
+    (dx, dy) = hop.displacement
+    ro = hop.row_orbital
+    co = hop.col_orbital
+    val = hop.value
+    add_hopping!(new_tb_model, (dx, dy), "$ro-p", "$co-p", val)
+    add_hopping!(new_tb_model, (-dx, -dy), "$co-h", "$ro-h", -val)
   end
   return new_tb_model
 end

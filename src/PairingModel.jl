@@ -69,45 +69,6 @@ const FORMFACTORS = Dict{String, Any}(
 )
 
 
-function make_pairing_realspace_dense{T <: Number}(
-      pairing_orderparameter :: Array{T, 3},
-      formfactor;
-      periodic ::Bool=true)
-
-  (n_basis, nx, ny) = size(pairing_orderparameter)
-  @assert n_basis == 2
-
-  pairing_gap_matrix = zeros(T, (2, nx, ny, 2, nx, ny))
-
-  collect_periodic = (ro, rx, ry, co, cx, cy, v) -> begin
-    rx, ry = mod(rx, nx, 1), mod(ry, ny, 1)
-    cx, cy = mod(cx, nx, 1), mod(cy, ny, 1)
-    pairing_gap_matrix[ro, rx, ry, co, cx, cy] += v
-    pairing_gap_matrix[co, cx, cy, ro, rx, ry] += conj(v)
-  end
-
-  collect_open = (ro, rx, ry, co, cx, cy, v) -> begin
-    if (1 <= rx <= nx && 1 <= cx <= nx &&
-        1 <= ry <= ny && 1 <= cy <= ny)
-      pairing_gap_matrix[ro, rx, ry, co, cx, cy] += v
-      pairing_gap_matrix[co, cx, cy, ro, rx, ry] += conj(v)
-    end
-  end
-
-  collect = periodic ? collect_periodic : collect_open
-
-  for ix=1:nx, iy=1:ny
-    for i_plq in [1,2]
-      v = 0.5 * pairing_orderparameter[i_plq, ix, iy]
-      for (ro, rx, ry, co, cx, cy, vff) in formfactor[i_plq]
-        collect(ro, ix+rx, iy+ry, co, ix+cx, iy+cy, vff*v)
-      end
-    end
-  end
-  return reshape(pairing_gap_matrix, (2*nx*ny, 2*nx*ny))
-end
-
-
 function make_pairing_mixedspace{T <: Number}(
       pairing_orderparameter ::Array{T, 2},
       formfactor;
@@ -153,3 +114,88 @@ function make_pairing_mixedspace{T <: Number}(
     return reshape(pairing_gap_matrix, (2*nx, 2*nx))
   end
 end
+
+
+
+
+
+function make_pairing_realspace_dense{T <: Number}(
+      pairing_orderparameter :: Array{T, 3},
+      formfactor;
+      periodic ::Bool=true)
+
+  (n_basis, nx, ny) = size(pairing_orderparameter)
+  @assert n_basis == 2
+
+  pairing_gap_matrix = zeros(T, (2, nx, ny, 2, nx, ny))
+
+  collect_periodic = (ro, rx, ry, co, cx, cy, v) -> begin
+    rx, ry = mod(rx, nx, 1), mod(ry, ny, 1)
+    cx, cy = mod(cx, nx, 1), mod(cy, ny, 1)
+    pairing_gap_matrix[ro, rx, ry, co, cx, cy] += v
+    pairing_gap_matrix[co, cx, cy, ro, rx, ry] += conj(v)
+  end
+
+  collect_open = (ro, rx, ry, co, cx, cy, v) -> begin
+    if (1 <= rx <= nx && 1 <= cx <= nx &&
+        1 <= ry <= ny && 1 <= cy <= ny)
+      pairing_gap_matrix[ro, rx, ry, co, cx, cy] += v
+      pairing_gap_matrix[co, cx, cy, ro, rx, ry] += conj(v)
+    end
+  end
+
+  collect = periodic ? collect_periodic : collect_open
+
+  for ix=1:nx, iy=1:ny
+    for i_plq in [1,2]
+      v = 0.5 * pairing_orderparameter[i_plq, ix, iy]
+      for (ro, rx, ry, co, cx, cy, vff) in formfactor[i_plq]
+        collect(ro, ix+rx, iy+ry, co, ix+cx, iy+cy, vff*v)
+      end
+    end
+  end
+  return reshape(pairing_gap_matrix, (2*nx*ny, 2*nx*ny))
+end
+
+
+
+
+#=
+function make_pairing_realspace_sparse{T <: Number}(
+      pairing_orderparameter :: Array{T, 3},
+      formfactor;
+      periodic ::Bool=true)
+
+  (n_basis, nx, ny) = size(pairing_orderparameter)
+  @assert n_basis == 2
+
+  pairing_gap_matrix = zeros(T, (2, nx, ny, 2, nx, ny))
+
+  collect_periodic = (ro, rx, ry, co, cx, cy, v) -> begin
+    rx, ry = mod(rx, nx, 1), mod(ry, ny, 1)
+    cx, cy = mod(cx, nx, 1), mod(cy, ny, 1)
+    pairing_gap_matrix[ro, rx, ry, co, cx, cy] += v
+    pairing_gap_matrix[co, cx, cy, ro, rx, ry] += conj(v)
+  end
+
+  collect_open = (ro, rx, ry, co, cx, cy, v) -> begin
+    if (1 <= rx <= nx && 1 <= cx <= nx &&
+        1 <= ry <= ny && 1 <= cy <= ny)
+      pairing_gap_matrix[ro, rx, ry, co, cx, cy] += v
+      pairing_gap_matrix[co, cx, cy, ro, rx, ry] += conj(v)
+    end
+  end
+
+  collect = periodic ? collect_periodic : collect_open
+
+  for ix=1:nx, iy=1:ny
+    for i_plq in [1,2]
+      v = 0.5 * pairing_orderparameter[i_plq, ix, iy]
+      for (ro, rx, ry, co, cx, cy, vff) in formfactor[i_plq]
+        collect(ro, ix+rx, iy+ry, co, ix+cx, iy+cy, vff*v)
+      end
+    end
+  end
+  return reshape(pairing_gap_matrix, (2*nx*ny, 2*nx*ny))
+end
+=#

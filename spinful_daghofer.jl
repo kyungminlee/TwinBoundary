@@ -29,26 +29,28 @@ function compute_momentumspace(nx ::Int, ny ::Int,
   all_eigenvectors_momentum = []
 
   double_spinful_daghofer_momentumspace = Tightbinding.make_momentumspace(double_spinful_daghofer_model)
-  pairing_momentumspace_d = make_pairing_momentumspace(Δd, formfactors["d1"])
-  pairing_momentumspace_s = make_pairing_momentumspace(Δs, formfactors["s1"])
+  pairing_momentumspace_d = make_pairing_momentumspace(Δd, FORMFACTORS["d1"])
+  pairing_momentumspace_s = make_pairing_momentumspace(Δs, FORMFACTORS["s1"])
   @showprogress for (ky, kx) in Base.product(kys, kxs)
     hk = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis,
                             n_nambu, n_orbital, n_spin, n_basis))
 
     let
       tk = double_spinful_daghofer_momentumspace(kx, ky)
+      tmk = double_spinful_daghofer_momentumspace(-kx, -ky)
       Δk = pairing_momentumspace_d(kx, ky) + pairing_momentumspace_s(kx, ky)
+      Δmk = pairing_momentumspace_d(-kx,-ky) + pairing_momentumspace_s(-kx,-ky)
       hk[1, :, :, :, 1, :, :, :] = reshape( tk, (n_orbital, n_spin, n_basis,
                                            n_orbital, n_spin, n_basis))
-      hk[2, :, :, :, 2, :, :, :] = reshape(-tk, (n_orbital, n_spin, n_basis,
+      hk[2, :, :, :, 2, :, :, :] = reshape(-tmk.', (n_orbital, n_spin, n_basis,
                                            n_orbital, n_spin, n_basis))
 
       # Assuming singlet (because I am using Delta k instead of Delta -k)
       for i_orbital in 1:n_orbital
-        hk[1, i_orbital, UP, :, 2, i_orbital, DN, :] = reshape(Δk, (n_basis, n_basis))
-        hk[1, i_orbital, DN, :, 2, i_orbital, UP, :] = -reshape(Δk, (n_basis, n_basis))
-        hk[2, i_orbital, DN, :, 1, i_orbital, UP, :] = -reshape(Δk, (n_basis, n_basis))
-        hk[2, i_orbital, UP, :, 1, i_orbital, DN, :] = reshape(Δk, (n_basis, n_basis))
+        hk[1, i_orbital, UP, :, 2, i_orbital, DN, :] = reshape(Δk,        (n_basis, n_basis))
+        hk[1, i_orbital, DN, :, 2, i_orbital, UP, :] = reshape(-Δmk.',    (n_basis, n_basis))
+        hk[2, i_orbital, DN, :, 1, i_orbital, UP, :] = reshape(Δk',       (n_basis, n_basis))
+        hk[2, i_orbital, UP, :, 1, i_orbital, DN, :] = reshape(-conj(Δk), (n_basis, n_basis))
       end
     end
 
@@ -81,7 +83,7 @@ end
 #function compute_mixedspace(param ::Dict)
 function compute_mixedspace(nx ::Int, ny ::Int,
   λ ::Real,
-  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real)
+  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real; periodic=true)
 
   const n_nambu = 2
   const n_basis = 2
@@ -105,7 +107,7 @@ function compute_mixedspace(nx ::Int, ny ::Int,
   all_eigenvalues_mixed = []
   all_eigenvectors_mixed = []
 
-  double_spinful_daghofer_mixedspace = Tightbinding.make_mixedspace(double_spinful_daghofer_model, nx; periodic=false)
+  double_spinful_daghofer_mixedspace = Tightbinding.make_mixedspace(double_spinful_daghofer_model, nx; periodic=periodic)
 
   ψs = reshape( [Δs * tanh((x - 0.5 - nx)/(sqrt(2.0) * ξ₀)) for x in 1:2*nx], (2, nx) )
   ψd = reshape( [Δd for x in 1:2*nx], (2,nx))
@@ -113,7 +115,7 @@ function compute_mixedspace(nx ::Int, ny ::Int,
 
   pairing_mixedspace_uniform = make_pairing_mixedspace(ψd,
                                                        FORMFACTORS["d1"];
-                                                       periodic=false)
+                                                       periodic=periodic)
   #
   # Δ = | 0  ψ| + |-dx+idy   dz  | = (ψ + ⃗d ⋅ ⃗σ) (i σ₂)
   #     |-ψ  0|   |  dz    dx+idy|
@@ -121,7 +123,7 @@ function compute_mixedspace(nx ::Int, ny ::Int,
   # Produces Δ(↑↓)
   pairing_mixedspace = make_pairing_mixedspace(ψs + dz,
                                                FORMFACTORS["s1"];
-                                               periodic=false)
+                                               periodic=periodic)
   @showprogress for ky in kys
     hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx,
                                      n_nambu, n_orbital, n_spin, n_basis, nx))
@@ -137,11 +139,11 @@ function compute_mixedspace(nx ::Int, ny ::Int,
                                                                 (n_orbital, n_spin, n_basis, nx,
                                                                  n_orbital, n_spin, n_basis, nx))
       for i_orbital in 1:n_orbital
-        hamiltonian[1, i_orbital, UP, :, :, 2, i_orbital, DN, :, :] =  reshape(Δky, (n_basis, nx, n_basis, nx))
-        hamiltonian[1, i_orbital, DN, :, :, 2, i_orbital, UP, :, :] = -reshape(transpose(Δmky), (n_basis, nx, n_basis, nx))
+        hamiltonian[1, i_orbital, UP, :, :, 2, i_orbital, DN, :, :] = reshape(Δky,         (n_basis, nx, n_basis, nx))
+        hamiltonian[1, i_orbital, DN, :, :, 2, i_orbital, UP, :, :] = reshape(-Δmky.',     (n_basis, nx, n_basis, nx))
 
-        hamiltonian[2, i_orbital, UP, :, :, 1, i_orbital, DN, :, :] = -reshape(conj(Δmky), (n_basis, nx, n_basis, nx))
-        hamiltonian[2, i_orbital, DN, :, :, 1, i_orbital, UP, :, :] = reshape(conj(transpose(Δky)), (n_basis, nx, n_basis, nx))
+        hamiltonian[2, i_orbital, UP, :, :, 1, i_orbital, DN, :, :] = reshape(-conj(Δmky), (n_basis, nx, n_basis, nx))
+        hamiltonian[2, i_orbital, DN, :, :, 1, i_orbital, UP, :, :] = reshape(Δky',        (n_basis, nx, n_basis, nx))
       end
     end
     #@show size(hamiltonian)
@@ -171,4 +173,218 @@ function compute_mixedspace(nx ::Int, ny ::Int,
   return Dict{String, Any}("eigenvalues" => all_eigenvalues_mixed,
                            "eigenvectors" => all_eigenvectors_mixed,
                            "momentums" => ky_bookkeep)
+end
+
+
+function compute_realspace(
+  nx ::Integer, ny ::Integer,
+  λ ::Real,
+  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real; periodic ::Bool=true)
+
+  const n_nambu = 2
+  const n_basis = 2
+  const n_orbital = 3
+  const n_spin = 2
+
+  const UP = 1
+  const DN = 2
+
+  const daghofer_parameter = DaghoferModel.DaghoferParameter(
+            0.02,  0.06,  0.03, -0.01,  0.20,
+            0.30, -0.20,  0.10,  0.40,  0.20)
+  const spinful_daghofer_model = DaghoferModel.spinfulDaghoferModel(Complex128, daghofer_parameter, λ)
+  const double_spinful_daghofer_model = Tightbinding.double_unitcell(spinful_daghofer_model)
+
+  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx, ny,
+  #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
+  hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
+                                   n_nambu, n_orbital* n_spin* n_basis* nx* ny))
+  @show size(hamiltonian)
+  hopping = Tightbinding.make_realspace_dense(double_spinful_daghofer_model, (nx, ny); periodic=periodic)
+  hamiltonian[1, :, 1, :] =  hopping
+  hamiltonian[2, :, 2, :] = -transpose(hopping)
+
+  hamiltonian_view = reshape(hamiltonian, (n_nambu, n_orbital, n_spin, n_basis*nx*ny,
+                                           n_nambu, n_orbital, n_spin, n_basis*nx*ny))
+
+  ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
+  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  pairing_uniform = make_pairing_realspace_dense(
+                            ψd,
+                            FORMFACTORS["d1"];
+                            periodic=periodic)
+  pairing_varying = make_pairing_realspace_dense(
+                            ψs + dz,
+                            FORMFACTORS["s1"];
+                            periodic=periodic)
+  pairing = pairing_uniform + pairing_varying
+  @show size(hamiltonian)
+  @show size(pairing_uniform)
+
+  for iorb in 1:3
+    ## Single only?
+    hamiltonian_view[1, iorb, UP, :, 2, iorb, DN, :] = pairing
+    hamiltonian_view[1, iorb, DN, :, 2, iorb, UP, :] =-pairing.'  #(Fermi Statistics)
+    hamiltonian_view[2, iorb, UP, :, 1, iorb, DN, :] =-conj(pairing)   # Hermiticity
+    hamiltonian_view[2, iorb, DN, :, 1, iorb, UP, :] = pairing'
+  end
+  n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
+  eigenvalues, eigenvectors = npl.eigh(reshape(hamiltonian, (n_eigen, n_eigen)))
+  #pairing_gap = make_pairing_realspace_dense()
+
+  return Dict{String, Any}("eigenvalues" => eigenvalues,
+                           "eigenvectors" => eigenvectors)
+end
+
+
+
+function compute_realspace(
+  nx ::Integer, ny ::Integer,
+  λ ::Real,
+  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real;
+  periodic=(true, true))
+
+  const n_nambu = 2
+  const n_basis = 2
+  const n_orbital = 3
+  const n_spin = 2
+
+  const UP = 1
+  const DN = 2
+
+  const daghofer_parameter = DaghoferModel.DaghoferParameter(
+            0.02,  0.06,  0.03, -0.01,  0.20,
+            0.30, -0.20,  0.10,  0.40,  0.20)
+  const spinful_daghofer_model = DaghoferModel.spinfulDaghoferModel(Complex128, daghofer_parameter, λ)
+  const double_spinful_daghofer_model = Tightbinding.double_unitcell(spinful_daghofer_model)
+
+  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx, ny,
+  #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
+  hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
+                                   n_nambu, n_orbital* n_spin* n_basis* nx* ny))
+  @show size(hamiltonian)
+  hopping = Tightbinding.make_realspace_dense(double_spinful_daghofer_model, (nx, ny); periodic=true)
+  hamiltonian[1, :, 1, :] =  hopping
+  hamiltonian[2, :, 2, :] = -transpose(hopping)
+
+  hamiltonian_view = reshape(hamiltonian, (n_nambu, n_orbital, n_spin, n_basis*nx*ny,
+                                           n_nambu, n_orbital, n_spin, n_basis*nx*ny))
+
+  ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
+  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  pairing_uniform = make_pairing_realspace_dense(
+                            ψd,
+                            FORMFACTORS["d1"];
+                            periodic=true)
+  pairing_varying = make_pairing_realspace_dense(
+                            ψs + dz,
+                            FORMFACTORS["s1"];
+                            periodic=true)
+  pairing = pairing_uniform + pairing_varying
+  @show size(hamiltonian)
+  @show size(pairing_uniform)
+
+  for iorb in 1:3
+    ## Single only?
+    hamiltonian_view[1, iorb, UP, :, 2, iorb, DN, :] = pairing
+    hamiltonian_view[1, iorb, DN, :, 2, iorb, UP, :] =-pairing.'  #(Fermi Statistics)
+    hamiltonian_view[2, iorb, UP, :, 1, iorb, DN, :] =-conj(pairing)   # Hermiticity
+    hamiltonian_view[2, iorb, DN, :, 1, iorb, UP, :] = pairing'
+  end
+  n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
+  eigenvalues, eigenvectors = npl.eigh(reshape(hamiltonian, (n_eigen, n_eigen)))
+  #pairing_gap = make_pairing_realspace_dense()
+
+  return Dict{String, Any}("eigenvalues" => eigenvalues,
+                           "eigenvectors" => eigenvectors)
+end
+
+
+
+
+function compute_realspace_sparse(
+  nx ::Integer, ny ::Integer,
+  λ ::Real,
+  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real;
+  periodic=(true, true))
+
+  const n_nambu = 2
+  const n_basis = 2
+  const n_orbital = 3
+  const n_spin = 2
+
+  const UP = 1
+  const DN = 2
+
+  const daghofer_parameter = DaghoferModel.DaghoferParameter(
+            0.02,  0.06,  0.03, -0.01,  0.20,
+            0.30, -0.20,  0.10,  0.40,  0.20)
+  const spinful_daghofer_model = DaghoferModel.spinfulDaghoferModel(Complex128, daghofer_parameter, λ)
+  const double_spinful_daghofer_model = Tightbinding.double_unitcell(spinful_daghofer_model)
+  const nambu_double_spinful_daghofer_model = Tightbinding.nambufy(double_spinful_daghofer_model)
+
+  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx, ny,
+  #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
+  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
+  #                                  n_nambu, n_orbital* n_spin* n_basis* nx* ny))
+  #@show size(hamiltonian)
+
+  nambu_hopping = Tightbinding.make_realspace_sparse(nambu_double_spinful_daghofer_model, (nx, ny); periodic=true)
+  ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
+  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  pairing_uniform = make_pairing_realspace_dense(
+                            ψd,
+                            FORMFACTORS["d1"];
+                            periodic=true)
+  pairing_varying = make_pairing_realspace_dense(
+                            ψs + dz,
+                            FORMFACTORS["s1"];
+                            periodic=true)
+  pairing = pairing_uniform + pairing_varying
+  #@show size(hamiltonian)
+  #@show size(pairing_uniform)
+
+  pairing_rows = Int[]
+  pairing_cols = Int[]
+  pairing_vals = Complex128[]
+
+  dims = (n_nambu, n_orbital, n_spin, n_basis * nx*ny)
+  function collect(isub, jsub, val)
+    i = sub2ind(dims, isub...)
+    j = sub2ind(dims, jsub...)
+    push!(pairing_rows, i)
+    push!(pairing_cols, j)
+    push!(pairing_vals, val)
+  end
+  for iorb in 1:3
+    ## Single only?
+    #=
+    hamiltonian_view[1, iorb, UP, :, 2, iorb, DN, :] = pairing
+    hamiltonian_view[1, iorb, DN, :, 2, iorb, UP, :] =-pairing.'  #(Fermi Statistics)
+    hamiltonian_view[2, iorb, UP, :, 1, iorb, DN, :] =-conj(pairing)   # Hermiticity
+    hamiltonian_view[2, iorb, DN, :, 1, iorb, UP, :] = pairing'
+    =#
+
+    for i in 1:n_basis * nx * ny
+      for j in 1:n_basis * nx * ny
+        if !isapprox(pairing[i, j], 0.0)
+          v = pairing[i,j]
+          collect((1, iorb, UP, i), (2, iorb, DN, j), v)
+          collect((1, iorb, DN, j), (2, iorb, UP, i),-v)
+          collect((2, iorb, UP, i), (1, iorb, DN, j),-conj(v))
+          collect((2, iorb, UP, j), (1, iorb, DN, i), conj(v))
+        end
+      end
+    end
+  end
+  n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
+  hamiltonian = nambu_hopping + sparse(pairing_rows, pairing_cols, pairing_vals, n_eigen, n_eigen)
+  eigenvalues, eigenvectors = eigs(Hermitian(hamiltonian); nev=32, which=:SM)
+  #pairing_gap = make_pairing_realspace_dense()
+
+  return Dict{String, Any}("eigenvalues" => eigenvalues,
+                           "eigenvectors" => eigenvectors)
 end
