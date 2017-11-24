@@ -4,7 +4,7 @@ using PyCall
 #@pyimport scipy.sparse.linalg as spsl
 
 PROJECTROOT="../.."
-include("$PROJECTROOT/src/TightBinding.jl")
+include("$PROJECTROOT/src/Tightbinding.jl")
 include("$PROJECTROOT/src/BandStructures/DaghoferModel.jl")
 include("$PROJECTROOT/src/DoublePlaquetteModel/PairingModel.jl")
 include("$PROJECTROOT/src/DoublePlaquetteModel/NaivePairingModel.jl")
