@@ -202,11 +202,8 @@ function compute_realspace_dense(
   const spinful_daghofer_model = DaghoferModel.spinfulDaghoferModel(Complex128, daghofer_parameter, λ)
   const double_spinful_daghofer_model = Tightbinding.double_unitcell(spinful_daghofer_model)
 
-  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx, ny,
-  #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
   hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
                                    n_nambu, n_orbital* n_spin* n_basis* nx* ny))
-  #@show size(hamiltonian)
   hopping = Tightbinding.make_realspace_dense(double_spinful_daghofer_model, (nx, ny); periodic=periodic)
   hamiltonian[1, :, 1, :] =  hopping
   hamiltonian[2, :, 2, :] = -transpose(hopping)
@@ -263,12 +260,6 @@ function compute_realspace_sparse(
   const double_spinful_daghofer_model = Tightbinding.double_unitcell(spinful_daghofer_model)
   const nambu_double_spinful_daghofer_model = Tightbinding.nambufy(double_spinful_daghofer_model)
 
-  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx, ny,
-  #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
-  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
-  #                                  n_nambu, n_orbital* n_spin* n_basis* nx* ny))
-  #@show size(hamiltonian)
-
   nambu_hopping = Tightbinding.make_realspace_sparse(nambu_double_spinful_daghofer_model, (nx, ny); periodic=periodic)
 
   ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
@@ -283,8 +274,6 @@ function compute_realspace_sparse(
                             FORMFACTORS["s1"];
                             periodic=periodic)
   pairing = pairing_uniform + pairing_varying
-  #@show size(hamiltonian)
-  #@show size(pairing_uniform)
 
   pairing_rows = Int[]
   pairing_cols = Int[]
@@ -315,9 +304,6 @@ function compute_realspace_sparse(
   n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
   hamiltonian = nambu_hopping + sparse(pairing_rows, pairing_cols, pairing_vals, n_eigen, n_eigen)
   eigenvalues, eigenvectors = eigs(Hermitian(hamiltonian); nev=32, which=:SM)
-  #pairing_gap = make_pairing_realspace_dense()
-  #@show eigenvalues
-  #@show imag.(eigenvalues)
   @assert all( isapprox.(imag.(eigenvalues), 0.0; atol=sqrt(eps(Float64))) )
   eigenvalues = real(eigenvalues)
   return Dict{String, Any}("eigenvalues" => eigenvalues,

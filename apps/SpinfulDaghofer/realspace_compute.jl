@@ -50,7 +50,6 @@ function parse_commandline()
 end
 
 
-
 function main()
   args = parse_commandline()
   @show args
@@ -63,21 +62,6 @@ function main()
   const ξ₁ = args["CorrelationLengthPwave"]
   const nx = args["Nx"]
   const ny = args["Ny"]
-
-  # no param confirmed
-  #const λ = 0.1
-  #const Δd = 0.3
-  #const Δs = 0.1
-  #const Δp = 1.0
-  #const ξ₀ = 1E-8
-  #const ξ₁ = 1E-8
-
-  #const λ = 0.1
-  #const Δd = 0.3
-  #const Δs = 0.1
-  #const ξ₀ = 1E-8
-  #const ξ₁ = 1E-8
-
 
   const n_nambu = 2
   const n_basis = 2
@@ -108,8 +92,8 @@ function main()
     "PairingDwave", Δd,
     "PairingSwave", Δs,
     "PairingPwave", Δp,
-    "CorrelationLength0", ξ₀,
-    "CorrelationLength1", ξ₁,
+    "CorrelationLengthSwave", ξ₀,
+    "CorrelationLengthPwave", ξ₁,
     "SystemSize", (nx, ny),
     "Eigenvalues", eigenvalues,
     "Densities", ρ)

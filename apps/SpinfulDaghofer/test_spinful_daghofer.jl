@@ -6,7 +6,6 @@ using PyPlot
 include("spinful_daghofer.jl")
 
 ## Test Uniform
-#=
 let
   const λ = 0.1
   const Δd = 0.2
@@ -65,14 +64,14 @@ let
     eig(Hermitian(0.5 * (hamiltonian_realspace + hamiltonian_realspace')  ))
   end
 
-  plot(eigenvalues_momentumspace .+ 0)
-  plot(eigenvalues_mixedspace .+ 1)
-  plot(eigenvalues_realspace .+ 2)
-  println("BEFORE SHOW")
-  show()
-  println("AFTER SHOW")
+  figure()
+  plot(eigenvalues_momentumspace .+ 0, ".-", alpha=0.5, label="momentumspace", linewidth=2)
+  plot(eigenvalues_mixedspace .+ 0, ".-", alpha=0.5, label="mixedspace", linewidth=2)
+  plot(eigenvalues_realspace .+ 0, ".-", alpha=0.5, label="realspace", linewidth=2)
+  title("Band Structure Comparison (Direct)")
+  legend()
 end
-=#
+
 
 
 
