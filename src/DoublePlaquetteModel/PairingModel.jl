@@ -15,26 +15,10 @@ A 2 A 2 A 2 A 2
 1 B 1 B 1 B 1 B
 =#
 
-function make_pairing_momentumspace{T<:Number}(
-      pairing_orderparameter ::T,
-      formfactor)
-  const R = [Float64[0.0, 0.0], Float64[0.5, 0.5]]
-  (kx ::Float64, ky ::Float64) -> begin
-    ret = zeros(Complex128, (2, 2))
-    for i_plq in [1,2]
-      for (ro, rx, ry, co, cx, cy, vff) in formfactor[i_plq]
-        dis = [cx, cy] - [rx, ry] + R[co] - R[ro]
-        v = 0.5 * vff * pairing_orderparameter * exp(1im * dis ⋅ [kx, ky])
-        ret[ro, co] += v
-        ret[co, ro] += conj(v)
-      end
-    end
-    return ret
-  end
-end
 
-# 1 : nearest neighbor
-
+# s1: nearest neighbor bonds with s-wave symmetry
+# d1: nearest neighbor bonds with d-wave symmetry
+# PlaquetteIndex => [(RowSiteTypeIndex, RowDx, RowDy, ColSiteTypeIndex, ColDx, ColDy, Value)...]
 const FORMFACTORS = Dict{String, Any}(
   "s1" => Dict(
     1 => [
@@ -67,6 +51,26 @@ const FORMFACTORS = Dict{String, Any}(
     ],
   ),
 )
+
+
+
+function make_pairing_momentumspace{T<:Number}(
+      pairing_orderparameter ::T,
+      formfactor)
+  const R = [Float64[0.0, 0.0], Float64[0.5, 0.5]]
+  (kx ::Float64, ky ::Float64) -> begin
+    ret = zeros(Complex128, (2, 2))
+    for i_plq in [1,2]
+      for (ro, rx, ry, co, cx, cy, vff) in formfactor[i_plq]
+        dis = [cx, cy] - [rx, ry] + R[co] - R[ro]
+        v = 0.5 * vff * pairing_orderparameter * exp(1im * dis ⋅ [kx, ky])
+        ret[ro, co] += v
+        ret[co, ro] += conj(v)
+      end
+    end
+    return ret
+  end
+end
 
 
 function make_pairing_mixedspace{T <: Number}(

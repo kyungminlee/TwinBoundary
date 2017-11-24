@@ -11,11 +11,6 @@ using JLD
 
 @pyimport numpy.linalg as npl
 
-include("src/Tightbinding.jl")
-include("src/DaghoferModel.jl")
-
-include("src/PairingModel.jl")
-include("src/NaivePairingModel.jl")
 
 include("spinful_daghofer.jl")
 
@@ -38,10 +33,10 @@ function parse_commandline()
     "--PairingPwave"
       arg_type = Float64
       required = true
-    "--CorrelationLengthDwave"
+    "--CorrelationLengthSwave"
       arg_type = Float64
       required = true
-    "--CorrelationLengthSwave"
+    "--CorrelationLengthPwave"
       arg_type = Float64
       required = true
     "--Nx"
@@ -52,12 +47,11 @@ function parse_commandline()
       required = true
   end
   return parse_args(s)
-
 end
 
 
-function main()
 
+function main()
   args = parse_commandline()
   @show args
   const output_filename = args["OutputFile"]
@@ -65,8 +59,8 @@ function main()
   const Δd = args["PairingDwave"]
   const Δs = args["PairingSwave"]
   const Δp = args["PairingPwave"]
-  const ξ₀ = args["CorrelationLengthDwave"]
-  const ξ₁ = args["CorrelationLengthSwave"]
+  const ξ₀ = args["CorrelationLengthSwave"]
+  const ξ₁ = args["CorrelationLengthPwave"]
   const nx = args["Nx"]
   const ny = args["Ny"]
 

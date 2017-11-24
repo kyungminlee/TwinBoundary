@@ -1,10 +1,10 @@
 using Base.Test
 
-include("Tightbinding.jl")
-include("DaghoferModel.jl")
+include("../src/Tightbinding.jl")
+include("../src/BandStructures/DaghoferModel.jl")
 
-include("PairingModel.jl")
-include("NaivePairingModel.jl")
+include("../src/DoublePlaquetteModel/PairingModel.jl")
+include("../src/DoublePlaquetteModel/NaivePairingModel.jl")
 
 daghofer_parameter = DaghoferModel.DaghoferParameter(
     0.02,
@@ -36,21 +36,22 @@ const Δ1d = Δ₀ * ones(Complex128, (2, nx))
 const Δ2d = Δ₀ * ones(Complex128, (2, nx, ny))
 
 all_eigenvalues_real = Float64[]
+
 @testset "2D" begin
   double_daghofer_realspace_dense = Tightbinding.make_realspace_dense(double_daghofer_model, (nx, ny); periodic=true)
-  
+
   hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_basis, nx, ny, n_nambu, n_orbital, n_basis, nx, ny))
-  
+
   let t = double_daghofer_realspace_dense
     hamiltonian[1, :, :, :, :, 1, :, :, :, :] = reshape( t, (n_orbital, n_basis, nx, ny, n_orbital, n_basis, nx, ny))
     hamiltonian[2, :, :, :, :, 2, :, :, :, :] = reshape(-t, (n_orbital, n_basis, nx, ny, n_orbital, n_basis, nx, ny))
   end
 
-  Δx = make_pairing_realspace_dense(Δ2d, formfactors["s1"]; periodic=true)
+  Δx = make_pairing_realspace_dense(Δ2d, FORMFACTORS["s1"]; periodic=true)
   # test if Δx is Hermitian
   @test isapprox(Δx, Δx'; atol=1E-8)
 
-  let 
+  let
     Δx_naive = NaivePairingModel.make_pairing_realspace_dense(Δ₀, nx, ny; periodic=true)
     # test if it matches with naive version
     @test isapprox(Δx, Δx_naive; atol=1E-8)
@@ -76,12 +77,12 @@ all_eigenvalues_mixed = Float64[]
   fullsize = (n_orbital, n_basis, nx, n_orbital, n_basis, nx)
   matsize = (n_orbital * n_basis * nx, n_orbital * n_basis * nx)
 
-  pairing_mixedspace = make_pairing_mixedspace(Δ1d, formfactors["s1"]; periodic=true)
+  pairing_mixedspace = make_pairing_mixedspace(Δ1d, FORMFACTORS["s1"]; periodic=true)
   pairing_mixedspace_naive = NaivePairingModel.make_pairing_mixedspace(Δ₀, nx)
 
   for ky in kys
     hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_basis, nx, n_nambu, n_orbital, n_basis, nx))
-    
+
     Δky  = pairing_mixedspace(ky)
     @test isapprox(Δky, Δky'; atol=1E-8)
 
@@ -115,7 +116,7 @@ all_eigenvalues_momentum = Float64[]
 @testset "0D" begin
   double_daghofer_momentumspace = Tightbinding.make_momentumspace(double_daghofer_model)
 
-  pairing_momentumspace = make_pairing_momentumspace(Δ₀, formfactors["s1"])
+  pairing_momentumspace = make_pairing_momentumspace(Δ₀, FORMFACTORS["s1"])
   pairing_momentumspace_naive = NaivePairingModel.make_pairing_momentumspace(Δ₀)
 
   for kx in kxs, ky in kys

@@ -3,12 +3,6 @@ using PyCall
 using ProgressMeter
 using PyPlot
 
-include("src/Tightbinding.jl")
-include("src/DaghoferModel.jl")
-
-include("src/PairingModel.jl")
-include("src/NaivePairingModel.jl")
-
 include("spinful_daghofer.jl")
 
 ## Test Uniform
@@ -113,12 +107,16 @@ formfactor is d-wave.
   sort!(eigenvalues_realspace)
   sort!(eigenvalues_mixedspace)
   sort!(eigenvalues_momentumspace)
+
+  @test isapprox(eigenvalues_momentumspace, eigenvalues_mixedspace)
+  @test isapprox(eigenvalues_momentumspace, eigenvalues_realspace)
+
+  figure()
   plot(eigenvalues_momentumspace .+ 0, ".-", alpha=0.5, label="momentumspace", linewidth=2)
   plot(eigenvalues_mixedspace .+ 0, ".-", alpha=0.5, label="mixedspace", linewidth=2)
   plot(eigenvalues_realspace .+ 0, ".-", alpha=0.5, label="realspace", linewidth=2)
   title("Pairing Eigenvalues. d-wave pairing")
   legend()
-  show()
 end
 
 #=
@@ -151,12 +149,16 @@ formfactor is s-wave.
   sort!(eigenvalues_realspace)
   sort!(eigenvalues_mixedspace)
   sort!(eigenvalues_momentumspace)
+
+  @test isapprox(eigenvalues_momentumspace, eigenvalues_mixedspace)
+  @test isapprox(eigenvalues_momentumspace, eigenvalues_realspace)
+
+  figure()
   plot(eigenvalues_momentumspace .+ 0, ".-", alpha=0.5, label="momentumspace", linewidth=2)
   plot(eigenvalues_mixedspace .+ 0, ".-", alpha=0.5, label="mixedspace", linewidth=2)
   plot(eigenvalues_realspace .+ 0, ".-", alpha=0.5, label="realspace", linewidth=2)
   title("Pairing Eigenvalues. s-wave pairing")
   legend()
-  show()
 end
 
 
@@ -166,7 +168,7 @@ end
 
 # TEST INCLUDING PAIRING
 
-@testset "Full Hamiltonian d-wave" begin
+@testset "Full D" begin
   # no param confirmed
   const λ = 0.1 # confirmed
   const Δd = 0.2
@@ -183,8 +185,8 @@ end
   const UP = 1
   const DN = 2
 
-  const nx = 2
-  const ny = 2
+  const nx = 3
+  const ny = 4
 
   const kxs = linspace(0, 2π, nx+1)[1:end-1]
   const kys = linspace(0, 2π, ny+1)[1:end-1]
@@ -195,28 +197,32 @@ end
 
   result_momentumspace = compute_momentumspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
   result_mixedspace = compute_mixedspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
-  result_realspace = compute_realspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
+  result_realspace = compute_realspace_dense(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
 
   eigenvalues_momentumspace = vcat(result_momentumspace["eigenvalues"]...)
   eigenvalues_mixedspace = vcat(result_mixedspace["eigenvalues"]...)
   eigenvalues_realspace = result_realspace["eigenvalues"]
+
+  @test isapprox(eigenvalues_momentumspace, eigenvalues_mixedspace)
+  @test isapprox(eigenvalues_momentumspace, eigenvalues_realspace)
+
+  figure()
   plot(eigenvalues_momentumspace .+ 0, ".-", alpha=0.5, label="momentumspace", linewidth=2)
   plot(eigenvalues_mixedspace .+ 0, ".-", alpha=0.5, label="mixedspace", linewidth=2)
   plot(eigenvalues_realspace .+ 0, ".-", alpha=0.5, label="realspace", linewidth=2)
   title("Full Hamiltonian with uniform d-wave only.")
   legend()
-  show()
 end
 
 
-if false
+@testset "Full D+S+P" begin
   # no param confirmed
   const λ = 0.0 # confirmed
   const Δd = 0.3
-  const Δs = 0.0
+  const Δs = 0.2
   const Δp = 1.0
-  const ξ₀ = 1E-8
-  const ξ₁ = 1E-8
+  const ξ₀ = 1.0
+  const ξ₁ = 2.0
 
   const n_nambu = 2
   const n_basis = 2
@@ -226,8 +232,8 @@ if false
   const UP = 1
   const DN = 2
 
-  const nx = 2
-  const ny = 2
+  const nx = 3
+  const ny = 4
 
   const kxs = linspace(0, 2π, nx+1)[1:end-1]
   const kys = linspace(0, 2π, ny+1)[1:end-1]
@@ -238,52 +244,23 @@ if false
 
   result_momentumspace = compute_momentumspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
   result_mixedspace = compute_mixedspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
-  result_realspace = compute_realspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
+  result_realspace = compute_realspace_dense(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
 
   eigenvalues_momentumspace = vcat(result_momentumspace["eigenvalues"]...)
   eigenvalues_mixedspace = vcat(result_mixedspace["eigenvalues"]...)
   eigenvalues_realspace = result_realspace["eigenvalues"]
+
+  # domain wall breaks translation symmetry
+  @test ! isapprox(eigenvalues_momentumspace, eigenvalues_realspace)
+  # but Ty is still preserved
+  @test isapprox(eigenvalues_mixedspace, eigenvalues_realspace)
+
+  figure()
   plot(eigenvalues_momentumspace .+ 0, ".-", alpha=0.5, label="momentumspace", linewidth=2)
   plot(eigenvalues_mixedspace .+ 0, ".-", alpha=0.5, label="mixedspace", linewidth=2)
   plot(eigenvalues_realspace .+ 0, ".-", alpha=0.5, label="realspace", linewidth=2)
+  title("D+S+P")
   legend()
-  println("BEFORE SHOW")
-  show()
-  println("AFTER SHOW")
 end
 
-
-if false
-  # no param confirmed
-  const λ = 0.0 # confirmed
-  const Δd = 0.3
-  const Δs = 0.0
-  const Δp = 1.0
-  const ξ₀ = 1E-8
-  const ξ₁ = 1E-8
-
-  const n_nambu = 2
-  const n_basis = 2
-  const n_orbital = 3
-  const n_spin = 2
-
-  const UP = 1
-  const DN = 2
-
-  const nx = 2
-  const ny = 2
-
-  const kxs = linspace(0, 2π, nx+1)[1:end-1]
-  const kys = linspace(0, 2π, ny+1)[1:end-1]
-
-  const daghofer_parameter = DaghoferModel.DaghoferParameter(
-          0.02,  0.06,  0.03, -0.01,  0.20,
-          0.30, -0.20,  0.10,  0.40,  0.20)
-
-  result_realspace = compute_realspace(nx, ny, λ, Δd, Δs, Δp, ξ₀, ξ₁)
-  eigenvalues_realspace = result_realspace["eigenvalues"]
-
-  plot(eigenvalues_realspace .+ 0, ".-", alpha=0.5, label="realspace", linewidth=2)
-  legend()
-  show()
-end
+show()

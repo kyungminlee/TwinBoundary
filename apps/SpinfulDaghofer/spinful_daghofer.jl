@@ -1,6 +1,13 @@
 using ProgressMeter
 using PyCall
 @pyimport numpy.linalg as npl
+#@pyimport scipy.sparse.linalg as spsl
+
+PROJECTROOT="../.."
+include("$PROJECTROOT/src/TightBinding.jl")
+include("$PROJECTROOT/src/BandStructures/DaghoferModel.jl")
+include("$PROJECTROOT/src/DoublePlaquetteModel/PairingModel.jl")
+include("$PROJECTROOT/src/DoublePlaquetteModel/NaivePairingModel.jl")
 
 #function compute_momentumspace(param ::Dict)
 function compute_momentumspace(nx ::Int, ny ::Int,
@@ -31,7 +38,7 @@ function compute_momentumspace(nx ::Int, ny ::Int,
   double_spinful_daghofer_momentumspace = Tightbinding.make_momentumspace(double_spinful_daghofer_model)
   pairing_momentumspace_d = make_pairing_momentumspace(Δd, FORMFACTORS["d1"])
   pairing_momentumspace_s = make_pairing_momentumspace(Δs, FORMFACTORS["s1"])
-  @showprogress for (ky, kx) in Base.product(kys, kxs)
+  for (ky, kx) in Base.product(kys, kxs)
     hk = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis,
                             n_nambu, n_orbital, n_spin, n_basis))
 
@@ -83,7 +90,7 @@ end
 #function compute_mixedspace(param ::Dict)
 function compute_mixedspace(nx ::Int, ny ::Int,
   λ ::Real,
-  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real; periodic=true)
+  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real; periodic::Bool=true)
 
   const n_nambu = 2
   const n_basis = 2
@@ -121,17 +128,17 @@ function compute_mixedspace(nx ::Int, ny ::Int,
   #     |-ψ  0|   |  dz    dx+idy|
   #
   # Produces Δ(↑↓)
-  pairing_mixedspace = make_pairing_mixedspace(ψs + dz,
-                                               FORMFACTORS["s1"];
-                                               periodic=periodic)
-  @showprogress for ky in kys
+  pairing_mixedspace_varying = make_pairing_mixedspace(ψs + dz,
+                                                       FORMFACTORS["s1"];
+                                                       periodic=periodic)
+  for ky in kys
     hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx,
                                      n_nambu, n_orbital, n_spin, n_basis, nx))
     let
       tky  = double_spinful_daghofer_mixedspace( ky)
       tmky = double_spinful_daghofer_mixedspace(-ky)
-      Δky  = pairing_mixedspace_uniform( ky) + pairing_mixedspace( ky)
-      Δmky = pairing_mixedspace_uniform(-ky) + pairing_mixedspace(-ky)
+      Δky  = pairing_mixedspace_uniform( ky) + pairing_mixedspace_varying( ky)
+      Δmky = pairing_mixedspace_uniform(-ky) + pairing_mixedspace_varying(-ky)
 
       hamiltonian[1, :, :, :, :, 1, :, :, :, :] = reshape( tky, (n_orbital, n_spin, n_basis, nx,
                                                                  n_orbital, n_spin, n_basis, nx))
@@ -176,15 +183,15 @@ function compute_mixedspace(nx ::Int, ny ::Int,
 end
 
 
-function compute_realspace(
+function compute_realspace_dense(
   nx ::Integer, ny ::Integer,
   λ ::Real,
   Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real; periodic ::Bool=true)
 
   const n_nambu = 2
-  const n_basis = 2
   const n_orbital = 3
   const n_spin = 2
+  const n_basis = 2
 
   const UP = 1
   const DN = 2
@@ -199,7 +206,7 @@ function compute_realspace(
   #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
   hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
                                    n_nambu, n_orbital* n_spin* n_basis* nx* ny))
-  @show size(hamiltonian)
+  #@show size(hamiltonian)
   hopping = Tightbinding.make_realspace_dense(double_spinful_daghofer_model, (nx, ny); periodic=periodic)
   hamiltonian[1, :, 1, :] =  hopping
   hamiltonian[2, :, 2, :] = -transpose(hopping)
@@ -208,8 +215,8 @@ function compute_realspace(
                                            n_nambu, n_orbital, n_spin, n_basis*nx*ny))
 
   ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
-  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
-  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₀)) for x in 1:2*nx, y in 1:ny], (2, nx, ny))
+  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for x in 1:2*nx, y in 1:ny], (2, nx, ny))
   pairing_uniform = make_pairing_realspace_dense(
                             ψd,
                             FORMFACTORS["d1"];
@@ -219,96 +226,27 @@ function compute_realspace(
                             FORMFACTORS["s1"];
                             periodic=periodic)
   pairing = pairing_uniform + pairing_varying
-  @show size(hamiltonian)
-  @show size(pairing_uniform)
 
   for iorb in 1:3
-    ## Single only?
     hamiltonian_view[1, iorb, UP, :, 2, iorb, DN, :] = pairing
     hamiltonian_view[1, iorb, DN, :, 2, iorb, UP, :] =-pairing.'  #(Fermi Statistics)
     hamiltonian_view[2, iorb, UP, :, 1, iorb, DN, :] =-conj(pairing)   # Hermiticity
     hamiltonian_view[2, iorb, DN, :, 1, iorb, UP, :] = pairing'
   end
+
   n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
   eigenvalues, eigenvectors = npl.eigh(reshape(hamiltonian, (n_eigen, n_eigen)))
-  #pairing_gap = make_pairing_realspace_dense()
 
   return Dict{String, Any}("eigenvalues" => eigenvalues,
                            "eigenvectors" => eigenvectors)
 end
-
-
-
-function compute_realspace(
-  nx ::Integer, ny ::Integer,
-  λ ::Real,
-  Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real;
-  periodic=(true, true))
-
-  const n_nambu = 2
-  const n_basis = 2
-  const n_orbital = 3
-  const n_spin = 2
-
-  const UP = 1
-  const DN = 2
-
-  const daghofer_parameter = DaghoferModel.DaghoferParameter(
-            0.02,  0.06,  0.03, -0.01,  0.20,
-            0.30, -0.20,  0.10,  0.40,  0.20)
-  const spinful_daghofer_model = DaghoferModel.spinfulDaghoferModel(Complex128, daghofer_parameter, λ)
-  const double_spinful_daghofer_model = Tightbinding.double_unitcell(spinful_daghofer_model)
-
-  #hamiltonian = zeros(Complex128, (n_nambu, n_orbital, n_spin, n_basis, nx, ny,
-  #                                 n_nambu, n_orbital, n_spin, n_basis, nx, ny))
-  hamiltonian = zeros(Complex128, (n_nambu, n_orbital* n_spin* n_basis* nx* ny,
-                                   n_nambu, n_orbital* n_spin* n_basis* nx* ny))
-  @show size(hamiltonian)
-  hopping = Tightbinding.make_realspace_dense(double_spinful_daghofer_model, (nx, ny); periodic=true)
-  hamiltonian[1, :, 1, :] =  hopping
-  hamiltonian[2, :, 2, :] = -transpose(hopping)
-
-  hamiltonian_view = reshape(hamiltonian, (n_nambu, n_orbital, n_spin, n_basis*nx*ny,
-                                           n_nambu, n_orbital, n_spin, n_basis*nx*ny))
-
-  ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
-  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
-  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
-  pairing_uniform = make_pairing_realspace_dense(
-                            ψd,
-                            FORMFACTORS["d1"];
-                            periodic=true)
-  pairing_varying = make_pairing_realspace_dense(
-                            ψs + dz,
-                            FORMFACTORS["s1"];
-                            periodic=true)
-  pairing = pairing_uniform + pairing_varying
-  @show size(hamiltonian)
-  @show size(pairing_uniform)
-
-  for iorb in 1:3
-    ## Single only?
-    hamiltonian_view[1, iorb, UP, :, 2, iorb, DN, :] = pairing
-    hamiltonian_view[1, iorb, DN, :, 2, iorb, UP, :] =-pairing.'  #(Fermi Statistics)
-    hamiltonian_view[2, iorb, UP, :, 1, iorb, DN, :] =-conj(pairing)   # Hermiticity
-    hamiltonian_view[2, iorb, DN, :, 1, iorb, UP, :] = pairing'
-  end
-  n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
-  eigenvalues, eigenvectors = npl.eigh(reshape(hamiltonian, (n_eigen, n_eigen)))
-  #pairing_gap = make_pairing_realspace_dense()
-
-  return Dict{String, Any}("eigenvalues" => eigenvalues,
-                           "eigenvectors" => eigenvectors)
-end
-
-
 
 
 function compute_realspace_sparse(
   nx ::Integer, ny ::Integer,
   λ ::Real,
   Δd ::Real, Δs ::Real, Δp ::Real, ξ₀ ::Real, ξ₁ ::Real;
-  periodic=(true, true))
+  periodic ::Bool=true)
 
   const n_nambu = 2
   const n_basis = 2
@@ -331,18 +269,19 @@ function compute_realspace_sparse(
   #                                  n_nambu, n_orbital* n_spin* n_basis* nx* ny))
   #@show size(hamiltonian)
 
-  nambu_hopping = Tightbinding.make_realspace_sparse(nambu_double_spinful_daghofer_model, (nx, ny); periodic=true)
+  nambu_hopping = Tightbinding.make_realspace_sparse(nambu_double_spinful_daghofer_model, (nx, ny); periodic=periodic)
+
   ψd = ones(Complex128, (n_basis, nx, ny)) .* Δd
-  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
-  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for y in 1:ny, x in 1:2*nx], (2, nx, ny))
+  ψs = reshape([Δs * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₀)) for x in 1:2*nx, y in 1:ny], (2, nx, ny))
+  dz = reshape([1im * Δp * tanh((x - 0.5 - nx)/ (sqrt(2.0) * ξ₁)) for x in 1:2*nx, y in 1:ny], (2, nx, ny))
   pairing_uniform = make_pairing_realspace_dense(
                             ψd,
                             FORMFACTORS["d1"];
-                            periodic=true)
+                            periodic=periodic)
   pairing_varying = make_pairing_realspace_dense(
                             ψs + dz,
                             FORMFACTORS["s1"];
-                            periodic=true)
+                            periodic=periodic)
   pairing = pairing_uniform + pairing_varying
   #@show size(hamiltonian)
   #@show size(pairing_uniform)
@@ -351,7 +290,7 @@ function compute_realspace_sparse(
   pairing_cols = Int[]
   pairing_vals = Complex128[]
 
-  dims = (n_nambu, n_orbital, n_spin, n_basis * nx*ny)
+  dims = (n_nambu, n_orbital, n_spin, n_basis*nx*ny)
   function collect(isub, jsub, val)
     i = sub2ind(dims, isub...)
     j = sub2ind(dims, jsub...)
@@ -360,14 +299,6 @@ function compute_realspace_sparse(
     push!(pairing_vals, val)
   end
   for iorb in 1:3
-    ## Single only?
-    #=
-    hamiltonian_view[1, iorb, UP, :, 2, iorb, DN, :] = pairing
-    hamiltonian_view[1, iorb, DN, :, 2, iorb, UP, :] =-pairing.'  #(Fermi Statistics)
-    hamiltonian_view[2, iorb, UP, :, 1, iorb, DN, :] =-conj(pairing)   # Hermiticity
-    hamiltonian_view[2, iorb, DN, :, 1, iorb, UP, :] = pairing'
-    =#
-
     for i in 1:n_basis * nx * ny
       for j in 1:n_basis * nx * ny
         if !isapprox(pairing[i, j], 0.0)
@@ -375,16 +306,20 @@ function compute_realspace_sparse(
           collect((1, iorb, UP, i), (2, iorb, DN, j), v)
           collect((1, iorb, DN, j), (2, iorb, UP, i),-v)
           collect((2, iorb, UP, i), (1, iorb, DN, j),-conj(v))
-          collect((2, iorb, UP, j), (1, iorb, DN, i), conj(v))
+          collect((2, iorb, DN, j), (1, iorb, UP, i), conj(v))
         end
       end
     end
   end
+
   n_eigen = n_nambu* n_orbital* n_spin* n_basis* nx* ny
   hamiltonian = nambu_hopping + sparse(pairing_rows, pairing_cols, pairing_vals, n_eigen, n_eigen)
   eigenvalues, eigenvectors = eigs(Hermitian(hamiltonian); nev=32, which=:SM)
   #pairing_gap = make_pairing_realspace_dense()
-
+  #@show eigenvalues
+  #@show imag.(eigenvalues)
+  @assert all( isapprox.(imag.(eigenvalues), 0.0; atol=sqrt(eps(Float64))) )
+  eigenvalues = real(eigenvalues)
   return Dict{String, Any}("eigenvalues" => eigenvalues,
                            "eigenvectors" => eigenvectors)
 end

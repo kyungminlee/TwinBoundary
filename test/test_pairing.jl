@@ -2,8 +2,8 @@ using Base.Test
 using PyPlot
 using Kore
 
-include("Tightbinding.jl")
-include("PairingModel.jl")
+include("../src/Tightbinding.jl")
+include("../src/DoublePlaquetteModel/PairingModel.jl")
 
 nx, ny = 4, 4
 kxs = linspace(0, 2*pi, nx+1)[1:end-1]

@@ -1,6 +1,6 @@
 using Base.Test
 
-include("Tightbinding.jl")
+include("../src/Tightbinding.jl")
 using Tightbinding
 
 Base.ishermitian{T <: Number}(m ::Matrix{T}; atol=0.0) = isapprox(m, m'; atol=atol)

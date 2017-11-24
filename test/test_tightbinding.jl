@@ -1,6 +1,6 @@
 using Base.Test
 
-include("Tightbinding.jl")
+include("../src/Tightbinding.jl")
 using Tightbinding
 
 Base.ishermitian{T <: Number}(m ::Matrix{T}; atol=0.0) = isapprox(m, m'; atol=atol)
@@ -24,7 +24,7 @@ Base.ishermitian{T <: Number}(m ::Matrix{T}; atol=0.0) = isapprox(m, m'; atol=at
   nx, ny = 3, 5
 
   kxs = linspace(0, 2 * pi, nx+1)[1:(end-1)]
-  kys = linspace(0, 2 * pi, ny+1)[1:(end-1)]  
+  kys = linspace(0, 2 * pi, ny+1)[1:(end-1)]
 
   h_real_dense = make_realspace_dense(tb, (nx, ny))
   h_real_sparse = make_realspace_sparse(tb, (nx, ny))
@@ -33,7 +33,7 @@ Base.ishermitian{T <: Number}(m ::Matrix{T}; atol=0.0) = isapprox(m, m'; atol=at
   h_mixed2 = make_mixedspace2(tb, (nx, 0))
 
   @test h_real_dense ≈ full(h_real_sparse)
-  
+
   e_real_dense = eigvals( Hermitian(0.5 * (h_real_dense + h_real_dense')) )
   e_momentum = Float64[]
   e_mixed = Float64[]
@@ -60,7 +60,7 @@ Base.ishermitian{T <: Number}(m ::Matrix{T}; atol=0.0) = isapprox(m, m'; atol=at
 
   tbc = conjugate(tb)
   @test ishermitian(tbc)
-  
+
   h_real_dense_conj = make_realspace_dense(tbc, (nx, ny))
   @test ishermitian(h_real_dense_conj)
   e_real_dense_conj = eigvals(Hermitian(0.5*(h_real_dense_conj + h_real_dense_conj')))

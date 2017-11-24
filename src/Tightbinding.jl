@@ -70,8 +70,8 @@ function TightbindingModel{D, S}(orbitals ::Vector{Tuple{String, Vector{Float64}
     orbital_info[orb] = OrbitalInformation(idx, pos)
   end
   hoppings = HoppingElement{D, S}[]
-  @show orbs
-  @show orbital_info
+  #@show orbs
+  #@show orbital_info
   TightbindingModel{D, S}(orbs, orbital_info, hoppings)
 end
 
